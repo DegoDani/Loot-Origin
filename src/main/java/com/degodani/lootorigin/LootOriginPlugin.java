@@ -45,6 +45,9 @@ public class LootOriginPlugin extends Plugin
 	private ClientToolbar clientToolbar;
 
 	@Inject
+	private Gson gson;
+
+	@Inject
 	private ItemManager itemManager;
 
 	@Inject
@@ -92,7 +95,7 @@ public class LootOriginPlugin extends Plugin
 		try (FileReader reader = new FileReader(vaultFile)) {
 			// Gson
 			Type type = new TypeToken<Map<String, Map<String, Integer>>>(){}.getType();
-			Map<String, Map<String, Integer>> loaded = new Gson().fromJson(reader, type);
+			Map<String, Map<String, Integer>> loaded = gson.fromJson(reader, type);
 
 			if (loaded != null) {
 				masterLootVault.clear();
@@ -107,7 +110,7 @@ public class LootOriginPlugin extends Plugin
 	private void saveVault() {
 		executor.submit(() -> {
 			try (FileWriter writer = new FileWriter(vaultFile)) {
-				new Gson().toJson(masterLootVault, writer);
+				gson.toJson(masterLootVault, writer);
 			} catch (Exception e) {
 				log.error("Failed to save Vault", e);
 			}
@@ -192,7 +195,6 @@ public class LootOriginPlugin extends Plugin
 
 				executor.submit(() -> {
 					try (FileReader reader = new FileReader(file)) {
-						Gson gson = new Gson();
 						OfficialLootRecord[] records = gson.fromJson(reader, OfficialLootRecord[].class);
 
 						if (records != null) {
