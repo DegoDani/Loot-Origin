@@ -45,7 +45,7 @@ public class LootOriginPlugin extends Plugin
 	private ClientToolbar clientToolbar;
 
 	@Inject
-	private ItemManager itemManager; // We need this to get the actual Name of the item, not just the ID!
+	private ItemManager itemManager;
 
 	@Inject
 	private ScheduledExecutorService executor;
@@ -60,22 +60,19 @@ public class LootOriginPlugin extends Plugin
 	{
 		log.info("Loot Origin started!");
 
-		// Initialize your new panel
+		// Initialize panel
 		panel = new LootOriginPanel(this);
 
 		final BufferedImage icon = ImageUtil.loadImageResource(LootOriginPlugin.class, "/icon.png");
 
-		// Build the button for the RuneLite sidebar
+		// Button
 		navButton = NavigationButton.builder()
 				.tooltip("Loot Origin")
 				.icon(icon)
 				.priority(5)
 				.panel(panel)
 				.build();
-
-		// Add the button to the toolbar
 		clientToolbar.addNavigation(navButton);
-		// Tell the plugin where to save the file, and load it immediately!
 		vaultFile = new File(RuneLite.RUNELITE_DIR, "loot-origin-vault.json");
 		loadVault();
 	}
@@ -88,12 +85,12 @@ public class LootOriginPlugin extends Plugin
 		clientToolbar.removeNavigation(navButton);
 	}
 
-	// This runs instantly when you open RuneLite
+	// This runs when you open RuneLite
 	private void loadVault() {
-		if (!vaultFile.exists()) return; // If it's your first time, the file won't exist yet
+		if (!vaultFile.exists()) return;
 
 		try (FileReader reader = new FileReader(vaultFile)) {
-			// This tells Gson exactly what shape the vault data should be
+			// Gson
 			Type type = new TypeToken<Map<String, Map<String, Integer>>>(){}.getType();
 			Map<String, Map<String, Integer>> loaded = new Gson().fromJson(reader, type);
 
@@ -106,7 +103,7 @@ public class LootOriginPlugin extends Plugin
 		}
 	}
 
-	// Uses RuneLite's official background worker! No more zombies!
+	// RuneLite's official background worker
 	private void saveVault() {
 		executor.submit(() -> {
 			try (FileWriter writer = new FileWriter(vaultFile)) {
@@ -124,26 +121,20 @@ public class LootOriginPlugin extends Plugin
 
 		// Loop through every item the monster just dropped
 		for (ItemStack item : event.getItems()) {
-			// Find the actual name of the item using its ID
 			String itemName = itemManager.getItemComposition(item.getId()).getName().toLowerCase();
 
-			// Standard vault math: Find the shelf, update the quantity
 			masterLootVault.putIfAbsent(itemName, new HashMap<>());
 			Map<String, Integer> sources = masterLootVault.get(itemName);
 
 			int currentTotal = sources.getOrDefault(sourceName, 0);
 			sources.put(sourceName, currentTotal + item.getQuantity());
 		}
-
-		// Silently save the updated Vault to your hard drive!
 		saveVault();
 	}
 	@Subscribe
 	public void onMenuEntryAdded(MenuEntryAdded event)
 	{
-		// 1. Check if it's an item
-		// 2. Check if holding SHIFT
-		// 3. ONLY trigger when the "Examine" option is being built to prevent duplicates
+		// Check if it's an item, holding shift, only when examine option is built
 		if (event.getItemId() != -1 && client.isKeyPressed(KeyCode.KC_SHIFT) && event.getOption().equals("Examine"))
 		{
 			client.createMenuEntry(-1)
@@ -151,21 +142,15 @@ public class LootOriginPlugin extends Plugin
 					.setTarget(event.getTarget())
 					.setIdentifier(event.getItemId())
 					.setType(MenuAction.RUNELITE)
-					.setForceLeftClick(true) // This tells RuneLite to make this the Shift+Left Click action!
+					.setForceLeftClick(true)
 					.onClick(e -> {
-						// Get the item's name
 						String itemName = itemManager.getItemComposition(event.getItemId()).getName();
-
-						// The Force-Open Command! (Safely wrapped so it doesn't cause UI stuttering)
 						SwingUtilities.invokeLater(() -> clientToolbar.openPanel(navButton));
-
-						// Fire up the search engine!
 						calculateOrigins(itemName);
 					});
 		}
 	}
 	private void calculateOrigins(String targetItemName) {
-		// Look in the vault for the item (convert to lowercase to match our vault format)
 		Map<String, Integer> sourceTotals = masterLootVault.get(targetItemName.toLowerCase());
 
 		if (sourceTotals == null || sourceTotals.isEmpty()) {
@@ -195,17 +180,16 @@ public class LootOriginPlugin extends Plugin
 		panel.showText(sb.toString());
 	}
 	public void importData() {
-		// Open the file browser on the main UI thread safely
+		// Open the file browser on the main UI thread
 		SwingUtilities.invokeLater(() -> {
 			JFileChooser fileChooser = new JFileChooser();
 			fileChooser.setDialogTitle("Select RuneLite Loot Tracker JSON");
 
-			// If the user selects a file and clicks "Open"
+			// If user selects file and clicks open
 			if (fileChooser.showOpenDialog(panel) == JFileChooser.APPROVE_OPTION) {
 				File file = fileChooser.getSelectedFile();
 				panel.showText("Importing data... please wait!");
 
-				// Use RuneLite's official background worker to read the massive file!
 				executor.submit(() -> {
 					try (FileReader reader = new FileReader(file)) {
 						Gson gson = new Gson();
@@ -219,17 +203,9 @@ public class LootOriginPlugin extends Plugin
 								if (record.drops != null) {
 									for (OfficialLootRecord.OfficialLootDrop drop : record.drops) {
 										if (drop.name == null) continue;
-
-										// Standardize the name to lowercase
 										String itemName = drop.name.toLowerCase();
-
-										// If the vault doesn't have a shelf for this item yet, build one!
 										masterLootVault.putIfAbsent(itemName, new HashMap<>());
-
-										// Get the shelf for this item
 										Map<String, Integer> sources = masterLootVault.get(itemName);
-
-										// Add the quantity to whatever is already there
 										int currentTotal = sources.getOrDefault(record.name, 0);
 										sources.put(record.name, currentTotal + drop.qty);
 									}
@@ -237,7 +213,6 @@ public class LootOriginPlugin extends Plugin
 							}
 							panel.showText("Success! Imported data from " + records.length + " different sources into the Vault.\n\nYou can now check items instantly!");
 
-							// Save it permanently!
 							saveVault();
 						}
 					} catch (Exception e) {
